@@ -1,0 +1,68 @@
+version: "3.6"
+
+services:
+  ai:
+    image: test-yolo
+    ports:
+      - "5002:5002"
+    environment:
+      BE_HOST: "http://172.17.0.1:8000/"
+      EMAIL: "thanhvy24042002@gmail.com"
+      PASSWORD: '12345678'
+
+    depends_on:
+      - be
+
+  be:
+    image: backend_who
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: 1
+      SECRET_KEY: 'django-insecure-4c#6j-73+_u4y)b8o^i-p$o@u$yt)#1f0cdi%obcfl17=1-&72'
+      ALLOWED_HOSTS: "localhost:8051,127.0.0.1,192.168.1.28,192.168.1.15:8051,wombat-glowing-utterly.ngrok-free.app"
+
+      AI_HOST: 'http://172.17.0.1:5002/detect'
+
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: 123456
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+
+      EMAIL_HOST_USER: who.contact43@gmail.com
+      EMAIL_HOST_PASSWORD: geawoghpbnveqvrr
+      EMAIL_BACKEND: 'django.core.mail.backends.smtp.EmailBackend'
+      EMAIL_HOST: 'smtp.gmail.com'
+      EMAIL_PORT: 587
+    depends_on:
+      - postgres_db
+
+  postgres_db:
+    image: postgres
+    ports:
+      - '5544:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres:/data/postgres
+
+  who_fe:
+    image: who_fe
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://172.17.0.1:8000/api
+      AI_URL: "http://172.17.0.1:5002"
+      CLOUD_NAME: df8w3e7si
+      API_KEY: "942237674279446"
+      API_SECRET: "H-hCbLs6QmDpIsgQZatjZ0T0RZg"
+      SECURE: true
+    depends_on:
+      - be
+      - ai
+
+volumes:
+  postgres:
