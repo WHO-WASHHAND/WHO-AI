@@ -37,7 +37,7 @@ def init_routes(app,socketio):
             return {'error': 'IP không hợp lệ'}, 400
 
         model_path = r"models/yolov8_v2.1.onnx"
-        output_video_path = r'E:\WHO-AI\data\ouput_video_vp.mp4'
+        output_video_path = r'/data/ouput_video_streaming.webm'
 
         # Tạo một Process mới để xử lý video
         # p = Process(target=process_video_with_yolov8, args=(socketio, video_url, model_path, output_video_path))

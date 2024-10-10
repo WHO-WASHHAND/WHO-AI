@@ -1,105 +1,120 @@
 import time
 import cv2
-from app.yolov8 import YOLOv8
 import numpy as np
-from app.yolov8.utils import draw_detections, xywh2xyxy, draw_box, draw_text, class_names
-from app.yolov8.utils import colors
+from app.yolov8 import YOLOv8
+from app.yolov8.utils import draw_box, draw_text, class_names, xywh2xyxy, colors
 
 
-def process_video_with_yolov8(socketio,video_path, model_path,output_video_path, conf_thres=0.7, iou_thres=0.8):
-    # Initialize the webcam
+def initialize_video_writer(video_path, output_video_path):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print("Error: Cannot open video.")
-        return
-
-    # Initialize YOLOv8 object detector
-    yolov8_detector = YOLOv8(model_path, conf_thres=conf_thres, iou_thres=iou_thres)
+        return None, None, None, None
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    list_steps = []
-    # Initialize VideoWriter to write the processed video
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4 format
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-    # Variable
-    frame_count = 0
-    tracker = None
-    last_class_id = None
-    last_scores = None
-    while True:
-        # Read frame from the video
+    return cap, out, width, height
 
-        '''for _ in range(2):
-            cap.grab()'''
+
+def initialize_tracker():
+    return cv2.TrackerCSRT_create()
+
+
+def reset_tracking_vars():
+    return None, None, 0, []
+
+
+def update_tracker(yolov8_detector, frame, tracker, last_class_id, last_scores, list_steps, frame_count):
+    boxes, scores, class_ids = yolov8_detector(frame)
+    if len(boxes) > 0:
+        max_score_index = np.argmax(scores)
+        max_box = boxes[max_score_index]
+        max_score = scores[max_score_index]
+        current_step = class_ids[max_score_index]
+        list_steps.append([current_step, frame_count])
+        if tracker is None or current_step != last_class_id:
+            bbox = tuple(int(value) for value in max_box)
+            tracker = initialize_tracker()
+            tracker.init(frame, bbox)
+            return tracker, current_step, max_score
+    return tracker, last_class_id, last_scores
+
+
+def process_tracking(frame, tracker, last_class_id):
+    success, bbox = tracker.update(frame)
+    if success:
+        bbox = np.array(bbox)
+        x1, y1, x2, y2 = xywh2xyxy(bbox)
+        draw_box(frame, bbox, colors[last_class_id])
+        label = class_names[last_class_id]
+        caption = f'{label} '
+        img_height, img_width = frame.shape[:2]
+        font_size = min([img_height, img_width]) * 0.0006
+        text_thickness = int(min([img_height, img_width]) * 0.001)
+        draw_text(frame, caption, bbox, colors[last_class_id], font_size, text_thickness)
+        return True
+    return False
+
+
+def process_video_with_yolov8(socketio, video_path, model_path, output_video_path, conf_thres=0.7, iou_thres=0.8):
+    # Initialize video capture and writer
+    cap, out, width, height = initialize_video_writer(video_path, output_video_path)
+    if cap is None:
+        return
+
+    # Initialize YOLOv8 detector
+    yolov8_detector = YOLOv8(model_path, conf_thres=conf_thres, iou_thres=iou_thres)
+
+    # Initialize variables
+    frame_count, check_status_reset = 0, 0
+    tracker, last_class_id, last_scores, list_steps = reset_tracking_vars()
+
+    while True:
         ret, frame = cap.read()
         if not ret:
             print("Error: Cannot read frame.")
             break
-        if ret:
-            frame_count += 1
-            if frame_count % 25 == 0:
-                # Update object localizer
-                boxes, scores, class_ids = yolov8_detector(frame)
 
-                if len(boxes) > 0:
-                    print(boxes, scores, class_ids)
-                    max_score_index = np.argmax(scores)
-                    max_box = boxes[max_score_index]
-                    max_score = scores[max_score_index]
-                    current_step = class_ids[max_score_index]
-                    list_steps.append([current_step,frame_count])
+        frame_count += 1
 
-                    if tracker is None or (current_step != last_class_id):
-                        bbox = tuple(int(value) for value in max_box)
-                        tracker = cv2.TrackerCSRT_create()
-                        tracker.init(frame, bbox)
-                        last_class_id = current_step
-                        last_scores = max_score
+        # Process every 25th frame for object detection
+        if frame_count % 25 == 0:
+            tracker, last_class_id, last_scores = update_tracker(
+                yolov8_detector, frame, tracker, last_class_id, last_scores, list_steps, frame_count
+            )
+            if tracker is None:
+                check_status_reset += 1
+            else:
+                check_status_reset = 0
+            if check_status_reset ==2:
+                tracker = None
+            if check_status_reset >= 5:
+                print("Resetting due to no objects detected.")
+                tracker, last_class_id, last_scores, list_steps = reset_tracking_vars()
+                frame_count, check_status_reset = 0, 0
 
-            if tracker is not None:
-                success, bbox = tracker.update(frame)
-                if success:
-                    bbox = np.array(bbox)
-                    x1, y1, x2, y2 = xywh2xyxy(bbox)
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), 2)
-                    draw_box(frame, bbox, colors[last_class_id])
-                    label = class_names[last_class_id]
-                    caption = f'{label} '
-                    img_height, img_width = frame.shape[:2]
-                    font_size = min([img_height, img_width]) * 0.0006
-                    text_thickness = int(min([img_height, img_width]) * 0.001)
-                    draw_text(frame, caption, bbox, colors[last_class_id], font_size, text_thickness)
-                else:
-                    # If tracking fails, reset tracker and last_step
-                    tracker = None
-                    last_class_id = None
+        # Continue tracking
+        if tracker is not None:
+            if not process_tracking(frame, tracker, last_class_id):
+                tracker, last_class_id = None, None
 
-            _, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
-            socketio.emit('video_frame', frame_bytes)
-            socketio.sleep(1 / fps)
-            out.write(frame)
-            # Press key q to stop
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        else:
+        # Emit frame to the socket
+        _, buffer = cv2.imencode('.jpg', frame)
+        socketio.emit('video_frame', buffer.tobytes())
+        socketio.sleep(1 / cap.get(cv2.CAP_PROP_FPS))
+
+        # Write frame to the output video
+        out.write(frame)
+
+        # Stop if 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        # Increment frame counter
-
-    print(list_steps)
-    # Release resources and close windows
+    print("Final Steps:", list_steps)
+    # Release resources
     cap.release()
     out.release()
     cv2.destroyAllWindows()
 
-'''if __name__ == "__main__":
-    video_path = r"C:/Users/vtvan/OneDrive/Máy tính/video-rua-tay-1-10-20241002T075259Z-001/video-rua-tay-1-10/2.mp4"
-    model_path = r"E:\HW\models\yolov8_v2.1.onnx"
-    output_video_path = r"C:/Users/vtvan/OneDrive/Máy tính/output_video.mp4"
-    start_time = time.time()
-    process_video_with_yolov8(video_path, model_path,output_video_path)
-    end_time = time.time()
-    total_time = end_time - start_time
-    print(f'Total processing time: {total_time:.2f} seconds')'''
