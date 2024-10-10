@@ -3,7 +3,6 @@
 .idea
 
 # Data, model
-/models/
 /data/
 tracker.db
 rasa.db*
@@ -144,7 +143,6 @@ dmypy.json
 .docker/volumes
 debugs
 assets
-models/*
 test_pipline_system.py
 package
 evaluation
