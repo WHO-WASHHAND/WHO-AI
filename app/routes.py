@@ -48,8 +48,6 @@ def init_routes(app,socketio):
             output_video_path=output_video_path,
             video_path=cam_url
         )
-        output_image_path = 'data/ouput_video_streaming.jpg'
-        middle_frame_video(cam_url, output_image_path)
         # Trả về phản hồi ngay sau khi bắt đầu quá trình
         return {'status': 'Started processing video '}, 200
 

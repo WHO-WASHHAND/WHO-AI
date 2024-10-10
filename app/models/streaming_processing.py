@@ -1,6 +1,8 @@
 import time
 import cv2
 import numpy as np
+
+from app.models import middle_frame_video
 from app.yolov8 import YOLOv8
 from app.yolov8.utils import draw_box, draw_text, class_names, xywh2xyxy, colors
 
@@ -13,7 +15,7 @@ def initialize_video_writer(video_path, output_video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'vp80')
     out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
     return cap, out, width, height
 
@@ -91,6 +93,13 @@ def process_video_with_yolov8(socketio, video_path, model_path, output_video_pat
             if check_status_reset ==2:
                 tracker = None
             if check_status_reset >= 5:
+                # Setup data for API
+                data_step = []
+                output_video_streaming_path = r'/data/ouput_video_streaming.webm'
+                output_img_streaming_path = middle_frame_video(output_video_streaming_path,r'../../data/ouput_img_streaming.jpg')
+                # call API
+
+                # reset variable
                 print("Resetting due to no objects detected.")
                 tracker, last_class_id, last_scores, list_steps = reset_tracking_vars()
                 frame_count, check_status_reset = 0, 0
