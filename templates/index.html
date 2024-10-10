@@ -40,7 +40,7 @@
     <div id="list-steps"></div>
 
     <script>
-        const socket = io('https://127.0.0.1:5002');
+        const socket = io('http://127.0.0.1:5002');
 
         socket.on('connect', () => {
             console.log('Đã kết nối tới máy chủ');
@@ -62,22 +62,6 @@
             document.getElementById('stream-container').appendChild(img);
         });
 
-        {#socket.on('update_list_steps', (data) => {#}
-        {#    const listSteps = data.list_steps;#}
-        {#    const stepsContainer = document.getElementById('list-steps');#}
-        {##}
-        {#    // Xóa nội dung cũ#}
-        {#    stepsContainer.innerHTML = '';#}
-        {##}
-        {#    // Lặp qua từng bước và tạo phần tử cho chúng#}
-        {#    listSteps.forEach(step => {#}
-        {#        const stepElement = document.createElement('div');#}
-        {#        stepElement.textContent = `$Step { step[0][0] + 1} `; // Thêm số thứ tự#}
-        {#        stepsContainer.appendChild(stepElement);#}
-        {#    });#}
-        {##}
-        {#    console.log('Nhận danh sách bước đã cập nhật:', listSteps);#}
-        {###}
 
         socket.on('disconnect', () => {
             console.log('Đã ngắt kết nối khỏi máy chủ');

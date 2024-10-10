@@ -1,7 +1,11 @@
 import cv2
 from ultralytics import YOLO
 
-model = YOLO("models/yolov8_v2.1.pt")
+import os
+model_path = os.path.join(os.path.dirname(__file__), '../../models/yolov8_v2.1.pt')
+model = YOLO(model_path)
+ # Đường dẫn tương đối tính từ vị trí file script hiện tại
+
 
 
 def frame_to_image(frame):

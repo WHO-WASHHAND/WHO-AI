@@ -31,13 +31,13 @@ def init_routes(app,socketio):
     @app.route('/streaming', methods=['POST'])
     def streaming():
         data = request.json
-        video_url = data.get('url')
+        cam_url = data.get('url')
 
-        if not video_url:
+        if not cam_url:
             return {'error': 'IP không hợp lệ'}, 400
 
         model_path = r"models/yolov8_v2.1.onnx"
-        output_video_path = 'data/ouput_video.mp4'
+        output_video_path = r'E:\WHO-AI\data\ouput_video_vp.mp4'
 
         # Tạo một Process mới để xử lý video
         # p = Process(target=process_video_with_yolov8, args=(socketio, video_url, model_path, output_video_path))
@@ -46,8 +46,10 @@ def init_routes(app,socketio):
             socketio=socketio,
             model_path=model_path,
             output_video_path=output_video_path,
-            video_path=video_url
+            video_path=cam_url
         )
+        output_image_path = 'data/ouput_video_streaming.jpg'
+        middle_frame_video(cam_url, output_image_path)
         # Trả về phản hồi ngay sau khi bắt đầu quá trình
         return {'status': 'Started processing video '}, 200
 
