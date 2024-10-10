@@ -14,10 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Clean up Docker system
-        run: |
-          docker system prune -af
-
       - name: Build, tag, and save image
         id: build-image
         env:
@@ -41,15 +37,18 @@ jobs:
         run: |
           docker push $USERNAME_DOCKERHUB/$IMAGE_NAME:latest
 
-#      - name: SSH into the server and pull Docker image
-#        uses: appleboy/ssh-action@v0.1.4
-#        with:
-#          host: ${{ secrets.HOST }}
-#          username: ${{ secrets.USERNAME }}
-#          key: ${{ secrets.SSH_KEY }}
-#          script: |
-#            docker pull ${{ secrets.USERNAME_DOCKERHUB }}/${{ secrets.IMAGE_NAME }}:latest
-#            docker run -d ${{ secrets.IMAGE_NAME }}:latest
+      - name: SSH into the server and pull Docker image
+        uses: appleboy/scp-action@master
+        env:
+          IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+          USERNAME_DOCKERHUB: ${{ secrets.USERNAME_DOCKERHUB }}
+        with:
+          host: ${{ secrets.HOST }}
+          port: ${{secrets.PORT}}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          command: |
+            docker pull $USERNAME_DOCKERHUB/$IMAGE_NAME:latest
 
   copy_files:
     name: Copy Files Into Server
@@ -68,7 +67,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.PORT}}
           source: docker-compose.yml
-          target: /home/${{ secrets.USERNAME }}/
+          target: /home/${{ secrets.USERNAME }}/deployment/
 
   deploy:
     name: Deploy
@@ -88,4 +87,4 @@ jobs:
           port: ${{ secrets.PORT}}
           script: |
             docker stack rm ${{ secrets.STACK_NAME }}
-            docker stack deploy -c /home/${{ secrets.USERNAME }}/docker-compose.yml ${{ secrets.STACK_NAME }}
+            docker stack deploy -c /home/${{ secrets.USERNAME }}/deployment/docker-compose.yml ${{ secrets.STACK_NAME }}

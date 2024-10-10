@@ -3,15 +3,74 @@ version: "3.6"
 services:
   ai:
     image: nvdluan/who_ai:latest
-    ports:
-      - "5002:5002"
-#    networks:
-#      - traefik-public
-    restart: always
     environment:
-      BE_HOST: "http://172.17.0.1:8000/"
+      BE_HOST: "http://be:8000/"
       EMAIL: "thanhvy24042002@gmail.com"
       PASSWORD: '12345678'
-    deploy:
-      mode: replicated
-      replicas: 1
+
+    depends_on:
+      - be
+    networks:
+      - who
+
+  be:
+    image: nvdluan/who_be:latest
+    ports:
+      - "8081:8000"
+    environment:
+      DEBUG: 1
+      SECRET_KEY: 'django-insecure-4c#6j-73+_u4y)b8o^i-p$o@u$yt)#1f0cdi%obcfl17=1-&72'
+      ALLOWED_HOSTS: "*"
+
+      AI_HOST: 'http://ai:5002/detect'
+
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: g4i1ISEYMXVioMYikKsU5lJ4vPydpWTZ
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+
+      EMAIL_HOST_USER: who.contact43@gmail.com
+      EMAIL_HOST_PASSWORD: geawoghpbnveqvrr
+      EMAIL_BACKEND: 'django.core.mail.backends.smtp.EmailBackend'
+      EMAIL_HOST: 'smtp.gmail.com'
+      EMAIL_PORT: 587
+    depends_on:
+      - postgres_db
+    networks:
+      - who
+
+  postgres_db:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: g4i1ISEYMXVioMYikKsU5lJ4vPydpWTZ
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres:/data/postgres
+    networks:
+      - who
+
+  who_fe:
+    image: nvdluan/who_fe:latest
+    ports:
+      - "8080:8501"
+    environment:
+      API_URL: http://be:8000/api
+      AI_URL: "http://ai:5002"
+      CLOUD_NAME: df8w3e7si
+      API_KEY: "942237674279446"
+      API_SECRET: "H-hCbLs6QmDpIsgQZatjZ0T0RZg"
+      SECURE: true
+    depends_on:
+      - be
+      - ai
+    networks:
+      - who
+
+
+volumes:
+  postgres:
+
+networks:
+  who:
