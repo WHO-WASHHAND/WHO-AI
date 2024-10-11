@@ -8,7 +8,7 @@ def middle_frame_video(video_path, output_image_path):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     middle_frame = total_frames // 2
 
-    for frame in range(middle_frame - 5, middle_frame + 5):
+    for frame in range(middle_frame - 15, middle_frame + 15):
         cap.set(cv2.CAP_PROP_POS_FRAMES, middle_frame)
         ret, frame = cap.read()
         cap.release()

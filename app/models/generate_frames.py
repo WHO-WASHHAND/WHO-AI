@@ -62,7 +62,7 @@ def generate_frames(cap, socketio):
     object_color_map = {}
     executed_objects = set()
     object_detection_start_times = {}  # Thêm biến để lưu thời gian bắt đầu detect của đối tượng
-    output_path = 'data/ouput_video_vp.webm'
+    output_path = r'data/output_video_vp.webm'
     fourcc = cv2.VideoWriter_fourcc(*'vp80')  # Codec mp4
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))

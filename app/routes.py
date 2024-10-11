@@ -1,3 +1,5 @@
+import os
+
 from flask import  request
 from multiprocessing import Process
 from app.models.generate_frames import generate_frames, increment_and_add_time
@@ -37,7 +39,8 @@ def init_routes(app,socketio):
             return {'error': 'IP không hợp lệ'}, 400
 
         model_path = r"models/yolov8_v2.1.onnx"
-        output_video_path = r'/data/ouput_video_streaming.webm'
+
+        output_video_path = os.path.join(os.path.dirname(__file__), r'../data/output_video_streaming.webm')
 
         # Tạo một Process mới để xử lý video
         # p = Process(target=process_video_with_yolov8, args=(socketio, video_url, model_path, output_video_path))
