@@ -2,9 +2,18 @@ import os
 
 from flask import  request
 from multiprocessing import Process
+from app.class_server import VideoServer
 from app.models.generate_frames import generate_frames, increment_and_add_time
 from app.models.middle_frame_video import *
 from app.models.streaming_processing import process_video_with_yolov8
+from app.yolov8 import YOLOv8
+
+iou_thres = 0.8
+conf_thres = 0.7
+model_path = r"models/yolov8_v2.1.onnx"
+# Initialize YOLOv8 detector
+yolov8_detector = YOLOv8(model_path, conf_thres=conf_thres, iou_thres=iou_thres)
+
 
 
 def init_routes(app,socketio):
@@ -34,22 +43,25 @@ def init_routes(app,socketio):
     def streaming():
         data = request.json
         cam_url = data.get('url')
-
+        cam_id = data.get('camera_id')
         if not cam_url:
             return {'error': 'IP không hợp lệ'}, 400
 
-        model_path = r"models/yolov8_v2.1.onnx"
 
-        output_video_path = os.path.join(os.path.dirname(__file__), r'../data/output_video_streaming.webm')
+        output_video_path = os.path.join(os.path.dirname(__file__), r'../data/output_video_streaming.avi')
 
         # Tạo một Process mới để xử lý video
-        # p = Process(target=process_video_with_yolov8, args=(socketio, video_url, model_path, output_video_path))
+        # server = VideoServer(video_source=cam_url)
+        # server.run()
+
+        # p = Process(target=process_video_with_yolov8, args=(cam_id, socketio, cam_url, model_path, output_video_path))
         # p.start()  # Bắt đầu quá trình xử lý video không đồng bộ
         process_video_with_yolov8(
+            cam_id=cam_id,
             socketio=socketio,
-            model_path=model_path,
             output_video_path=output_video_path,
-            video_path=cam_url
+            video_path=cam_url,
+            yolo_model=yolov8_detector,
         )
         # Trả về phản hồi ngay sau khi bắt đầu quá trình
         return {'status': 'Started processing video '}, 200

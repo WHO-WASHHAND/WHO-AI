@@ -1,11 +1,16 @@
 import os
-import time
+from datetime import datetime
+
 import cv2
 import numpy as np
 from collections import Counter
-from app.models.generate_frames import middle_frame_video
+
 from app.yolov8 import YOLOv8
 from app.yolov8.utils import draw_box, draw_text, class_names, xywh2xyxy, colors, frame_to_time
+
+from app.models.api import api_call_event_handing
+from app.models.api_clone_video import UpLoadFileToClone
+from app.models.generate_frames import middle_frame_video
 
 
 def initialize_video_writer(video_path, output_video_path):
@@ -16,7 +21,7 @@ def initialize_video_writer(video_path, output_video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    fourcc = cv2.VideoWriter_fourcc(*'vp80')  # Codec VP8 cho WebM
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec VP8 cho WebM
     out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
     return cap, out, width, height
 
@@ -29,7 +34,7 @@ def reset_tracking_vars():
     return None, None, 0, [], []
 
 
-def update_tracker(socketio,yolov8_detector, frame, tracker, last_class_id, last_scores, list_steps, frame_count,fps,check_status_reset,stream_step):
+def update_tracker(socketio, yolov8_detector, frame, tracker, last_class_id, last_scores, list_steps, frame_count, fps, check_status_reset,stream_step):
     boxes, scores, class_ids = yolov8_detector(frame)
     if len(boxes) > 0:
         check_status_reset = 0
@@ -101,21 +106,19 @@ def process_steps_with_threshold(socketio,list_steps, fps, time_threshold=150):
     return completed_steps
 
 
-def process_video_with_yolov8(socketio, video_path, model_path, output_video_path, conf_thres=0.7, iou_thres=0.8):
+def process_video_with_yolov8(cam_id, socketio, video_path, output_video_path, yolo_model):
     # Initialize video capture and writer
     cap, out, width, height = initialize_video_writer(video_path, output_video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     if cap is None:
         return
 
-    # Initialize YOLOv8 detector
-    yolov8_detector = YOLOv8(model_path, conf_thres=conf_thres, iou_thres=iou_thres)
-
     # Initialize variables
     frame_count, check_status_reset = 0, 0
     tracker, last_class_id, last_scores, list_steps,stream_step = reset_tracking_vars()
 
     while True:
+
         ret, frame = cap.read()
         if not ret:
             print("Error: Cannot read frame.")
@@ -124,22 +127,34 @@ def process_video_with_yolov8(socketio, video_path, model_path, output_video_pat
         frame_count += 1
 
         # Process every 25th frame for object detection
-        if frame_count % fps == 0:
-            tracker, last_class_id, last_scores, check_status_reset,stream_step = update_tracker(socketio,
-                yolov8_detector, frame, tracker, last_class_id, last_scores, list_steps, frame_count,fps,check_status_reset,stream_step
+        if frame_count % fps != 0:
+            continue
+        tracker, last_class_id, last_scores, check_status_reset, stream_step = update_tracker(socketio,
+            yolo_model, frame, tracker, last_class_id, last_scores, list_steps, frame_count,fps,check_status_reset,stream_step
+        )
+        if check_status_reset >= 3 and len(list_steps) > 0:
+            output_steps = stream_step
+            # Setup data for API
+            output_video_path = os.path.join(os.path.dirname(__file__), r'../../data/output_video_streaming.avi')
+            output_img_path = os.path.join(os.path.dirname(__file__), r'../../data/output_video_streaming.jpg')
+            middle_frame_video(output_video_path, output_img_path)
+            # call API để gửi completed_steps nếu cần
+            print(output_img_path,output_video_path,output_steps)
+            clone = UpLoadFileToClone()
+            url_clone_img = clone.upload_image_to_clone(output_img_path)
+            url_clone_video = clone.upload_video_to_clone(output_video_path)
+            # call API
+            api_call_event_handing(
+                video_path=url_clone_video,
+                actor_id='6e8f851c-4af9-4db9-ae7d-b61b3da33ea0',
+                image_path=url_clone_img,
+                camera_id=cam_id,
+                list_steps=output_steps,
             )
-            if check_status_reset >= 3 and len(list_steps) > 0:
-                output_steps = stream_step
-                # Setup data for API
-                output_video_path = os.path.join(os.path.dirname(__file__), r'../../data/output_video_streaming.webm')
-                output_img_path = os.path.join(os.path.dirname(__file__), r'../../data/output_video_streaming.jpg')
-                middle_frame_video(output_video_path, output_img_path)
-                # call API để gửi completed_steps nếu cần
-                print(output_img_path,output_video_path,output_steps)
-                # Reset biến
-                print("Resetting due to no objects detected.")
-                tracker, last_class_id, last_scores, list_steps,stream_step = reset_tracking_vars()
-                frame_count, check_status_reset = 0, 0
+            # reset variable
+            print("Resetting due to no objects detected.")
+            tracker, last_class_id, last_scores, list_steps,stream_step = reset_tracking_vars()
+            frame_count, check_status_reset = 0, 0
 
         # Continue tracking
         if tracker is not None:

@@ -6,11 +6,12 @@ from app.models.load_env import (
     PASSWORD
 )
 
-def api_call_event_handing(event_id, list_steps, image_path, video_path):
+def api_call_event_handing(camera_id, actor_id, list_steps, image_path, video_path):
     access_token = api_login_ai_account()
     api_call_send_data_event(
+        actor_id=actor_id,
         access_token=access_token,
-        event_id=event_id,
+        camera_id=camera_id,
         list_steps=list_steps,
         image_path=image_path,
         video_path=video_path
@@ -29,14 +30,16 @@ def api_login_ai_account():
     return access_token
 
 
-def api_call_send_data_event(access_token, event_id, image_path, video_path, list_steps):
-    url = f'{BE_HOST}api/event/{event_id}/ai_update_data/'
+def api_call_send_data_event(camera_id, actor_id, access_token, image_path, video_path, list_steps):
+    url = f'{BE_HOST}api/event/handing/'
 
     clone_video = UpLoadFileToClone()
     url_image = clone_video.upload_image_to_clone(image_path)
     url_video = clone_video.upload_video_to_clone(video_path)
 
     data = {
+        'camera': camera_id,
+        'actor': actor_id,
         'data_ai': list_steps,
         'image_url': url_image,
         'video_result': url_video
